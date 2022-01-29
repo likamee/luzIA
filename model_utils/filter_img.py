@@ -25,7 +25,7 @@ def process_filters(SOURCE, FILENAME, METHOD, PATO = ''):
     if check_bright(IMAGEGS): #or check_blurry(IMAGEGS):
         cv2.imwrite(SOURCE+'excluidas/'+FILENAME, IMAGE)
         return False
-    IMAGE = globals()[METHOD](IMAGE)
+    IMAGE = globals()[METHOD](IMAGEGS)
     #IMAGE = globals()['unsharp'](IMAGE)
     
     cv2.imwrite(SOURCE+'algo'+FOLDER+'/'+FILENAME, IMAGE)
@@ -415,28 +415,29 @@ def high_pass(IMAGE):
     return img_back
 
 #for FILENAME in random.sample(FILESN, len(FILESN)):
-def apply_filter(METHOD,PATO, SOURCE, FILESN, FILESP, IMGN, IMGP):
+def apply_filter(METHOD,PATO, SOURCE, FILESN, FILESP, IMGN, PROP, H_RESO, L_RESO, TYPEIMG):
     COUNT = 0
+    RESO = H_RESO if TYPEIMG == 'h' else L_RESO
     for FILENAME in FILESN:
-        if ("20sus" not in FILENAME and "021sus" not in FILENAME and "60sus" not in FILENAME and "70sus" not in FILENAME and "80sus" not in FILENAME):
-            continue
-        if not process_filters(SOURCE, FILENAME, METHOD):
-            continue
-        COUNT = COUNT + 1
-        if COUNT == IMGN:
-            break
+        if any(list(map(lambda x: x in FILENAME, RESO))):
+            if not process_filters(SOURCE, FILENAME, METHOD):
+                continue
+            COUNT = COUNT + 1
+            if COUNT == IMGN:
+                break
 
     x = 0
 
+    NNORM = COUNT
+    IMGP = int(NNORM//PROP) if len(FILESP) > NNORM//PROP else len(FILESP)
     COUNT = 0
     for FILENAME in FILESP:
-        if ("20sus" not in FILENAME and "021sus" not in FILENAME and "60sus" not in FILENAME and "70sus" not in FILENAME and "80sus" not in FILENAME):
-            continue
-        if not process_filters(SOURCE, FILENAME, METHOD, '/'+PATO):
-            continue
-        COUNT = COUNT + 1
-        if COUNT == IMGP:
-            break
+        if any(list(map(lambda x: x in FILENAME, RESO))):
+            if not process_filters(SOURCE, FILENAME, METHOD, '/'+PATO):
+                continue
+            COUNT = COUNT + 1
+            if COUNT == IMGP:
+                break
         
     
 """if ("20sus" not in FILENAME and "021sus" not in FILENAME and "60sus" not in FILENAME and "70sus" not in FILENAME and "80sus" not in FILENAME):

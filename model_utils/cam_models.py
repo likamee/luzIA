@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from tensorflow.keras.applications import VGG16, InceptionResNetV2, InceptionV3, VGG19
 from tensorflow.keras import models
-from tensorflow.keras.models import Model
+from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import  Dense, Lambda, Input, Activation, Reshape
 from tensorflow.keras import backend as K
 from tensorflow.keras.optimizers import SGD, RMSprop
@@ -27,42 +27,60 @@ def global_average_pooling_shape(input_shape):
 
 
 #best 12 layers eyepacs and 6 messidor2
-def build_vgg16_GAP(n_layers = 12, input_shape=(299, 299, 3), trainable_layers = None):
+def build_vgg16_GAP(n_layers = 12, type_train = 'n', name_test = '', input_shape=(299, 299, 3), trainable_layers = None):
     """
     Atualmente o modelo mais eficiente na deteccao das retinopatias.
     Consiste de layers de uma VGG16 treinados no conjunto de
     dados imagenet
     """
     
-    
-    vgg_conv = VGG16(weights='imagenet', include_top=False, input_shape=input_shape)
+    #Se o tipo de treino for normal, iremos fazer a transferencia de conhecimento apenas da ImageNet
+    #Caso for FT, precisamos todas as layers do modelo com LR baixo
+    #Caso for uma transferencia de conhecimento, frizar algumas layers e treinar em cima das demais com dados novos
+
+    # ----------------------------- #
+
     #Congelo os layer que não irei treinar
     #Textar deixar os ultimos layers treinaveis
     
     #Os indexes dos layers que serão treinados
     #Se a lista de layers para treino for None então
     #não sera treinada nem um layer
-    x = vgg_conv.output
-    x = Lambda(global_average_pooling, output_shape=global_average_pooling_shape)(x)
-    predictions = Dense(2, activation = 'softmax', kernel_initializer='uniform')(x)
+    if type_train == 'n':
+        print('Generating model with ImageNet weights')        
+        name_test = name_test+'_base'
+        vgg_conv = VGG16(weights='imagenet', include_top=False, input_shape=input_shape)
+        
+        x = vgg_conv.output
+        x = Lambda(global_average_pooling, output_shape=global_average_pooling_shape)(x)
+        predictions = Dense(2, activation = 'softmax', kernel_initializer='uniform')(x)
 
-    model = Model(inputs=vgg_conv.input, outputs=predictions)
-
+        model = Model(inputs=vgg_conv.input, outputs=predictions)
+    else:
+        print('Loading the base model to '+type_train)
+        model = load_model(name_test+'.hdf5')
+        name_test = name_test+'_'+type_train
     count = 0
-    for layer in vgg_conv.layers[::-1]:
-
-        if not isinstance(layer,Conv2D) or count > n_layers:
-            layer.trainable = False
-        else:
+    if type_train == 'ft':
+        for layer in model.layers[::-1]:            
             layer.trainable = True
-            count = count + 1
-	
-    opt = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+        lr = 0.0001
+    else:
+        for layer in model.layers[::-1]:
+
+            if not isinstance(layer,Conv2D) or count > n_layers:
+                layer.trainable = False
+            else:
+                layer.trainable = True
+                count = count + 1
+        lr = 0.01
+        
+    opt = SGD(learning_rate=lr, decay=1e-6, momentum=0.9, nesterov=True)
     #opt = RMSprop(lr=0.001, decay=4e-5, momentum=0.0)
     model.compile(loss='binary_crossentropy',
                   optimizer=opt, metrics=[METRICS])
                            
-    return model
+    return model, name_test
 
 def build_vgg19_GAP(input_shape=(299, 299, 3), trainable_layers = None, n_layers = 3):
     """
@@ -94,7 +112,7 @@ def build_vgg19_GAP(input_shape=(299, 299, 3), trainable_layers = None, n_layers
             layer.trainable = True
             count = count + 1
 	
-    opt = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+    opt = SGD(learning_rate=0.01, decay=1e-6, momentum=0.9, nesterov=True)
     #opt = RMSprop(lr=0.001, decay=4e-5, momentum=0.0)
     model.compile(loss='binary_crossentropy',
                   optimizer=opt, metrics=[METRICS])
@@ -200,7 +218,7 @@ def build_InceptionV3_GAP(input_shape=(299, 299, 3), trainable_layers = None, n_
             layer.trainable = True
             count = count + 1
             	
-    opt = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+    opt = SGD(learning_rate=0.01, decay=1e-6, momentum=0.9, nesterov=True)
     #opt = RMSprop(lr=0.001, decay=4e-5, momentum=0.0)
     model.compile(loss='binary_crossentropy',optimizer=opt, metrics=[METRICS])
                            
@@ -225,7 +243,7 @@ def build_inception_resnetv2(input_shape, n_layers = 50):
             layer.trainable = True
             count = count + 1
             	
-    opt = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+    opt = SGD(learning_rate=0.01, decay=1e-6, momentum=0.9, nesterov=True)
     #opt = RMSprop(lr=0.001, decay=4e-5, momentum=0.0)
     model.compile(loss='binary_crossentropy',optimizer=opt, metrics=[METRICS])
 
