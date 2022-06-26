@@ -1,12 +1,12 @@
 from tensorflow.python.keras.models import load_model
 from sklearn.metrics import roc_curve, auc
-from tensorflow.keras.metrics import TruePositives, FalsePositives, TrueNegatives, FalseNegatives, BinaryAccuracy, Precision, Recall, AUC
-from tensorflow.keras.optimizers import SGD
-
+from tensorflow.python.keras.metrics import TruePositives, FalsePositives, TrueNegatives, FalseNegatives, BinaryAccuracy, Precision, Recall, AUC
+from tensorflow.python.keras.optimizer_v2.gradient_descent import SGD
+from model_utils import filter_img
+from model_utils.load_data import gen_data
+from model_utils.generic_funcs import remove_files_dir
 import config as cfg
 import custom_metrics as cm
-from model_utils.load_data import gen_data
-from model_utils import cam_models
 
 def generate_thresholds(num_thresholds, kepsilon=1e-7):
     thresholds = [
@@ -33,17 +33,25 @@ METRICS_EVAL = [
 
 def evaluate():
     #evaluate
-    MODEL = 'results/eye_raw12.hdf5'
+    # Generating batches of data to be used for training.
+    if cfg.GEN_IMG:
+        remove_files_dir(cfg.DATA_PATH+'/normais')
+        remove_files_dir(cfg.DATA_PATH+'/'+cfg.PATO)
+        remove_files_dir(cfg.SOURCE+'/excluidas')
+        filter_img.apply_filter(cfg.FILTER, cfg.PATO, cfg.SOURCE, cfg.FILESN, cfg.FILESP, cfg.PROPORTION, cfg.H_RESO, cfg.L_RESO, cfg.TYPEIMG)
+    _, TEST_GEN = gen_data()
+    NAMETEST = cfg.PATO+'_'+cfg.FILTER+'_'+str(cfg.NLAYERS)
+    MODEL = 'results/unifesp/'+NAMETEST+'_base_low.hdf5'
     print('Loading the model')
     MODEL = load_model(MODEL)
-    OPT = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+    OPT = SGD(learning_rate=0.01, decay=1e-6, momentum=0.9, nesterov=True)
 
     MODEL.compile(loss='binary_crossentropy',optimizer=OPT, metrics=[METRICS_EVAL])
 
     """ 
-    Y_PRED = MODEL.predict(validation_generator)
+    Y_PRED = MODEL.predict(TEST_GEN)
     Y_PRED = [np.where(np.round(r.tolist())==1)[0][0] for r in Y_PRED]
-    fpr_keras, tpr_keras, thresholds_keras = roc_curve(validation_generator.classes, Y_PRED)
+    fpr_keras, tpr_keras, thresholds_keras = roc_curve(TEST_GEN.classes, Y_PRED)
     auc_keras = auc(fpr_keras, tpr_keras)
 
 
@@ -67,10 +75,10 @@ def evaluate():
     plt.legend(loc='best')
     plt.show() """
 
-    loss, acc, auc, tp, fp, tn, fn, pr, recall = MODEL.evaluate(validation_generator, steps=validation_generator.samples // BATCH_SIZE, verbose=2)
+    loss, acc, auc, tp, fp, tn, fn, pr, recall = MODEL.evaluate(TEST_GEN, steps=TEST_GEN.samples // cfg.BATCH_SIZE, verbose=2)
 
     sensitivities, specificities = [], []
-    for i in range(len(thresholds)):
+    for i in range(len(THRESHOLDS)):
         if tp[i] + fn[i] > 0:
             sensivity = 100 * tp[i] / (tp[i] + fn[i])
         else:

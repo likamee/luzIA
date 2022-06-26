@@ -1,6 +1,7 @@
 *.jpg
 *.jpeg
 *.png
+*.bmp
 *.npy
 *.txt
 *.gz2

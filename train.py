@@ -5,27 +5,37 @@ from model_utils.load_data import gen_data
 from model_utils.generic_funcs import remove_files_dir
 
 import config as cfg
-
-
+import pickle
 
 def process_train():
     if cfg.GEN_IMG:
         remove_files_dir(cfg.DATA_PATH+'/normais')
         remove_files_dir(cfg.DATA_PATH+'/'+cfg.PATO)
         remove_files_dir(cfg.SOURCE+'/excluidas')
-        filter_img.apply_filter(cfg.FILTER, cfg.PATO, cfg.SOURCE, cfg.FILESN, cfg.FILESP, cfg.IMGN, cfg.PROPORTION, cfg.H_RESO, cfg.L_RESO, cfg.TYPEIMG)
+        filter_img.apply_filter(cfg.FILTER, cfg.PATO, cfg.SOURCE, cfg.FILESN, cfg.FILESP, cfg.PROPORTION, cfg.H_RESO, cfg.L_RESO, cfg.TYPEIMG)
 
     train_generator, validation_generator = gen_data()
     ##CNN
-    NAMETEST = cfg.DS+'_'+cfg.FILTER+'_'+str(cfg.NLAYERS)
+    NAMETEST = cfg.PATO+'_'+cfg.FILTER+'_'+str(cfg.NLAYERS)
     MODEL, NAMETEST = cam_models.build_vgg16_GAP(cfg.NLAYERS, cfg.TYPETRAIN, NAMETEST) #best 9 layers15
     FILENAME=NAMETEST+'.csv'
-    CSVLOG=callbacks.CSVLogger(FILENAME, separator=',', append=False)
+    CSVLOG=callbacks.CSVLogger('results/refuge/'+FILENAME, separator=',', append=False)
     #early_stopping=callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=0, verbose=0, mode='min')
-    FPATH=NAMETEST+'.hdf5'
+    FPATH='results/refuge/'+NAMETEST+'.hdf5'
     CHECKP = callbacks.ModelCheckpoint(FPATH, monitor='val_loss', verbose=1, save_best_only=True, mode='min')
     CALLBLIST = [CSVLOG,CHECKP]
 
+    """ with open ('xtrain.txt', 'rb') as fp:
+        X_train = pickle.load(fp)
+
+    with open ('ytrain.txt', 'rb') as fp:
+        Y_train = pickle.load(fp)
+
+    with open ('xval.txt', 'rb') as fp:
+        X_val = pickle.load(fp)
+
+    with open ('yval.txt', 'rb') as fp:
+        Y_val = pickle.load(fp) """
 
     #class_weight = {0:1, 1:2.8}
     MODEL.fit(

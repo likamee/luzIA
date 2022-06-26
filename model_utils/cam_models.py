@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
-from tensorflow.keras.applications import VGG16, InceptionResNetV2, InceptionV3, VGG19
-from tensorflow.keras import models
+from tensorflow.keras.applications import VGG16, InceptionResNetV2, InceptionV3, VGG19, ResNet50
+from tensorflow.keras import models, Sequential
 from tensorflow.keras.models import Model, load_model
-from tensorflow.keras.layers import  Dense, Lambda, Input, Activation, Reshape
 from tensorflow.keras import backend as K
-from tensorflow.keras.optimizers import SGD, RMSprop
-from tensorflow.keras.layers import Flatten, Dense, Dropout, GlobalAveragePooling2D, Conv2D, MaxPooling2D, BatchNormalization
+from tensorflow.keras.optimizers import SGD, Adam
+from tensorflow.keras.layers import Flatten, Dense, Dropout, GlobalAveragePooling2D, Conv2D, MaxPooling2D, BatchNormalization, Lambda, Activation
 from tensorflow.keras.metrics import TruePositives, FalsePositives, TrueNegatives, FalseNegatives, BinaryAccuracy, Precision, Recall, AUC
 from tensorflow.keras.constraints import max_norm
 from tensorflow.keras.regularizers import l2
@@ -76,6 +75,9 @@ def build_vgg16_GAP(n_layers = 12, type_train = 'n', name_test = '', input_shape
         lr = 0.01
         
     opt = SGD(learning_rate=lr, decay=1e-6, momentum=0.9, nesterov=True)
+    #opt = Adam(learning_rate=lr, decay=1e-6)
+
+    model.summary()
     #opt = RMSprop(lr=0.001, decay=4e-5, momentum=0.0)
     model.compile(loss='binary_crossentropy',
                   optimizer=opt, metrics=[METRICS])
@@ -248,3 +250,20 @@ def build_inception_resnetv2(input_shape, n_layers = 50):
     model.compile(loss='binary_crossentropy',optimizer=opt, metrics=[METRICS])
 
     return model
+
+
+def build_resnet50(n_layers = 12, type_train = 'n', name_test = '', input_shape=(299, 299, 3), trainable_layers = None):
+    resnet = ResNet50(weights='imagenet', include_top=False, input_shape=input_shape)
+
+    for layer in resnet.layers:
+        layer.trainable = False
+
+    model = Sequential()
+    model.add(resnet)
+    model.add(Flatten())
+    model.add(Dense(128, activation="relu"))
+    model.add(Dense(1,activation="sigmoid"))
+    model.summary()
+    model.compile(optimizer="adam",loss="binary_crossentropy",metrics=["accuracy"])
+
+    return model, name_test
